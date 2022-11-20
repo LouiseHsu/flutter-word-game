@@ -2,10 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:english_words/english_words.dart';
 import 'package:tuple/tuple.dart';
 import 'dart:math';
 import 'package:dictionaryx/dictionary_sa.dart';
@@ -13,6 +10,14 @@ import 'game.dart';
 
 const letters = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"];
 const letterPoints = [1, 2, 2, 2, 1, 2, 2, 2, 1, 3, 3, 1, 2, 1, 1, 2, 5, 1, 1, 1, 1, 2, 1, 3, 3, 3];
+const List<Tuple2> enemyList = [
+  Tuple2(5, 'assets/images/blue-slime.gif'),
+  Tuple2(10, 'assets/images/pink-slime.gif'),
+  Tuple2(15, 'assets/images/green-slime.gif')
+];
+
+const int playerMaxHealth = 5;
+
 
 final dMSAJson = DictionarySA();
 
@@ -41,30 +46,64 @@ class PuzzleContainerState extends StatefulWidget {
 }
 
 class _PuzzleContainerState extends State<PuzzleContainerState> {
-  var playerHealth = 3;
-  var enemyHealth = 10;
+  var playerHealth = playerMaxHealth;
+  int numEnemyIndex = 0;
+  Tuple2 currEnemy = enemyList[0];
+  var enemyHealth = enemyList[0].item1;
+
+  bool playerAttacking = false;
+  bool enemyAttacking = false;
+
+  void enemyAttack() {
+    Future.delayed(const Duration(milliseconds: 1000), () {
+      setState(() {
+        changePlayerHealthBy(-1);
+      });
+    });
+  }
 
   int changePlayerHealthBy(int delta) {
-    setState(() {
-      playerHealth += delta;
-    });
+    if (playerHealth + delta > 0) {
+      setState(() {
+        playerHealth += delta;
+      });
+    } else {
+      // initiate game over
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const GameOverScreen()));
+    }
+
     return playerHealth;
   }
 
   int changeEnemyHealthBy(int delta) {
-    setState(() {
-      enemyHealth += delta;
-    });
+    if (enemyHealth + delta > 0) {
+      setState(() {
+        enemyHealth += delta;
+      });
+      enemyAttack();
+    } else {
+      setState(() {
+        enemyHealth = 0;
+        Future.delayed(const Duration(milliseconds: 1000), () {
+          setState(() {
+            numEnemyIndex = (numEnemyIndex += 1) % enemyList.length;
+            currEnemy = enemyList[numEnemyIndex];
+            enemyHealth = currEnemy.item1;
+            playerHealth = playerMaxHealth;
+          });
+        });
+      });
+    }
     return enemyHealth;
   }
 
   @override
   Widget build(BuildContext context) {
     return Container(
-        color: Colors.brown,
+        color: Color(0xff0c4438),
         child: Column(
           children: [
-            GameView(playerHealth: playerHealth, enemyHealth: enemyHealth),
+            GameView(playerHealth: playerHealth, enemyHealth: enemyHealth, enemyImage: currEnemy.item2, playerAttacking: playerAttacking, enemyAttacking: enemyAttacking,),
             WordPuzzleState(changeEnemyHealthBy: changeEnemyHealthBy, changePlayerHealthBy: changePlayerHealthBy)
           ],
         )
@@ -139,22 +178,14 @@ class _WordPuzzleState extends State<WordPuzzleState> {
 
   int calculateDamage(String candidate) {
     setState(() {
-      currentDamage = candidate.length~/2;
+      currentDamage = candidate.length~/1;
       print(currentDamage);
     });
     return currentDamage;
   }
 
   void submitAttack() {
-    setState(() {
-      widget.changeEnemyHealthBy(-currentDamage);
-    });
-    Future.delayed(const Duration(milliseconds: 1000), () {
-      setState(() {
-        widget.changePlayerHealthBy(-1);
-      });
-    });
-
+    widget.changeEnemyHealthBy(-currentDamage);
   }
 
   static Random random = Random();
@@ -215,8 +246,8 @@ class _WordPuzzleState extends State<WordPuzzleState> {
   Widget build(BuildContext context) {
     return Column(
         children: [
-          CurrentAttackDisplay(currentDamage: currentDamage)
-          ,GridView.builder(
+          CurrentAttackDisplay(currentDamage: currentDamage),
+          GridView.builder(
             shrinkWrap: true,
             padding: const EdgeInsets.all(30.0),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -231,6 +262,7 @@ class _WordPuzzleState extends State<WordPuzzleState> {
 
               return ElevatedButton(
                 style: const ButtonStyle(
+                    padding: MaterialStatePropertyAll(EdgeInsets.all(0.0)),
                     animationDuration: Duration.zero,
                     alignment: Alignment.center,
                     // backgroundColor:
@@ -244,11 +276,25 @@ class _WordPuzzleState extends State<WordPuzzleState> {
                     print('hi2');
                   });
                 } : null,
-                child: Text(letters[tileValue].toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 20,
-                      color: Colors.black,
-                    )));
+                child: Container(
+                  padding: const EdgeInsets.all(0.0),
+                  constraints: BoxConstraints.expand(),
+                  decoration: const BoxDecoration(
+                    image: DecorationImage(
+                      image: AssetImage('assets/images/tile.png'),
+                      fit: BoxFit.cover
+                    )
+                  ),
+                    child: Align(
+                      alignment: Alignment.center,
+                      child: Text(letters[tileValue].toUpperCase(),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          color: Colors.black,
+                        ))
+                    )
+                ));
             }),
           LetterChoices(currentWord: currentWord, resetTiles: resetTiles, validWord: validWord, submitWord: submitAttack, loadNewTiles: loadNewTiles)]
     );
@@ -334,5 +380,28 @@ class _LetterChoicesState extends State<LetterChoices> {
     );
   }
 }
+
+class GameOverScreen extends StatelessWidget {
+  const GameOverScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Center(
+        child: Container(
+          color: Colors.black,
+          child: Text(
+            "Game Over!",
+            style: TextStyle(
+              color: Colors.red,
+              fontSize: 30.0
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 
 

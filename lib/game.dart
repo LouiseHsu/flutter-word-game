@@ -1,10 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:tuple/tuple.dart';
 import '';
 
 class GameView extends StatefulWidget {
   final int playerHealth;
   final int enemyHealth;
-  const GameView({Key? key, required this.playerHealth, required this.enemyHealth}) : super(key: key);
+  final String enemyImage;
+  final bool playerAttacking;
+  final bool enemyAttacking;
+  const GameView({Key? key,
+    required this.playerHealth,
+    required this.enemyHealth,
+    required this.enemyImage,
+    required this.playerAttacking,
+    required this.enemyAttacking
+  }) : super(key: key);
 
   @override
   State<GameView> createState() => _GameViewState();
@@ -21,31 +31,37 @@ class _GameViewState extends State<GameView> {
             color: Colors.blue,
             height: 300
           ),
-          Container(
-            color: Colors.green,
-            height: 100,
-            alignment: Alignment.centerLeft,
-          ),
-          Container(
-            color: Colors.brown,
-            height: 20,
-            alignment: Alignment.bottomCenter,
+          Stack(
+            children: [
+              Container(
+                  color: Color(0xff0c4438),
+                  height: 100,
+              ),
+              Positioned(
+                height: 30,
+                child: Image.asset(
+                  'assets/images/grass-tile.png',
+                  width: 500,
+                  repeat: ImageRepeat.repeatX,
+                  scale: 0.25,
+                )
+              )
+            ],
           ),
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Player(health: widget.playerHealth),
-              Enemy(health: widget.enemyHealth),
+              Enemy(enemyHealth: widget.enemyHealth, enemyImage: widget.enemyImage),
             ],
           )
-
         ]
     );
   }
 }
 
 class Player extends StatefulWidget {
-  final health;
+  final int health;
   const Player({Key? key,
     required this.health}) : super(key: key);
 
@@ -56,7 +72,9 @@ class Player extends StatefulWidget {
 class _PlayerState extends State<Player> {
 
   List<Image> healthDisplay() {
-    return List.generate(widget.health, (i) => Image.asset('assets/images/heart.png')).toList(); // replace * with your rupee or use Icon instead
+    return widget.health > 0 ?
+    List.generate(widget.health, (i) => Image.asset('assets/images/heart.png')).toList() :
+    []; // replace * with your rupee or use Icon instead
   }
 
   @override
@@ -81,9 +99,11 @@ class _PlayerState extends State<Player> {
 }
 
 class Enemy extends StatefulWidget {
-  final health;
+  final enemyHealth;
+  final enemyImage;
   const Enemy({Key? key,
-    required this.health}) : super(key: key);
+    required this.enemyHealth,
+    required this.enemyImage}) : super(key: key);
 
   @override
   State<Enemy> createState() => _EnemyState();
@@ -95,7 +115,7 @@ class _EnemyState extends State<Enemy> {
   }
 
   List<Image> healthDisplay() {
-    return List.generate(widget.health, (i) => Image.asset('assets/images/heart.png')).toList(); // replace * with your rupee or use Icon instead
+    return List.generate(widget.enemyHealth, (i) => Image.asset('assets/images/heart.png')).toList(); // replace * with your rupee or use Icon instead
   }
 
   @override
@@ -111,9 +131,12 @@ class _EnemyState extends State<Enemy> {
           ),
           Container (
               alignment: Alignment.centerLeft,
-              padding: const EdgeInsets.only(bottom: 90, left: 50, right: 50),
-              child: Image.asset('assets/images/fox.gif')
-          ),
+              padding: const EdgeInsets.only(bottom: 50, left: 50, right: 50),
+              child: Image.asset(
+                widget.enemyImage,
+                scale: 0.75,
+              )
+          )
         ]
     );
   }
