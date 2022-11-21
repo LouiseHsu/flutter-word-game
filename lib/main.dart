@@ -7,17 +7,19 @@ import 'package:tuple/tuple.dart';
 import 'dart:math';
 import 'package:dictionaryx/dictionary_sa.dart';
 import 'game.dart';
+import 'grid-puzzle.dart';
+import 'package:audioplayers/audioplayers.dart';
+
 
 const letters = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"];
 const letterPoints = [1, 2, 2, 2, 1, 2, 2, 2, 1, 3, 3, 1, 2, 1, 1, 2, 5, 1, 1, 1, 1, 2, 1, 3, 3, 3];
 const List<Tuple2> enemyList = [
-  Tuple2(5, 'assets/images/blue-slime.gif'),
-  Tuple2(10, 'assets/images/pink-slime.gif'),
-  Tuple2(15, 'assets/images/green-slime.gif')
+  Tuple2(4, 'assets/images/blue-slime.gif'),
+  Tuple2(8, 'assets/images/pink-slime.gif'),
+  Tuple2(12, 'assets/images/green-slime.gif')
 ];
 
 const int playerMaxHealth = 5;
-
 
 final dMSAJson = DictionarySA();
 
@@ -46,6 +48,7 @@ class PuzzleContainerState extends StatefulWidget {
 }
 
 class _PuzzleContainerState extends State<PuzzleContainerState> {
+  var score = 0;
   var playerHealth = playerMaxHealth;
   int numEnemyIndex = 0;
   Tuple2 currEnemy = enemyList[0];
@@ -55,27 +58,53 @@ class _PuzzleContainerState extends State<PuzzleContainerState> {
   bool enemyAttacking = false;
 
   void enemyAttack() {
-    Future.delayed(const Duration(milliseconds: 1000), () {
+    Future.delayed(const Duration(milliseconds: 500), ()
+    async {
       setState(() {
+        enemyAttacking = true;
+      });
+      var audioPlayer = AudioPlayer();
+      await audioPlayer.play(
+        AssetSource('sounds/hit.mp3'),
+        volume: 0.5
+      );
+      Future.delayed(const Duration(milliseconds: 200), () {
         changePlayerHealthBy(-1);
       });
     });
   }
 
+  void playerAttack(int damage) {
+
+    setState(() {
+      playerAttacking = true;
+      score += damage.abs() * 100;
+    });
+    var audioPlayer = AudioPlayer();
+    audioPlayer.play(
+        AssetSource('sounds/hit.mp3'),
+        volume: 0.5
+    );
+    Future.delayed(const Duration(milliseconds: 300), () {
+      changeEnemyHealthBy(damage);
+    });
+  }
+
   int changePlayerHealthBy(int delta) {
+    enemyAttacking = false;
     if (playerHealth + delta > 0) {
       setState(() {
         playerHealth += delta;
       });
     } else {
       // initiate game over
-      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const GameOverScreen()));
+      Navigator.of(context).push(MaterialPageRoute(builder: (context) => GameOverScreen(score: score)));
     }
-
     return playerHealth;
   }
 
   int changeEnemyHealthBy(int delta) {
+    playerAttacking = false;
     if (enemyHealth + delta > 0) {
       setState(() {
         enemyHealth += delta;
@@ -103,300 +132,77 @@ class _PuzzleContainerState extends State<PuzzleContainerState> {
         color: Color(0xff0c4438),
         child: Column(
           children: [
-            GameView(playerHealth: playerHealth, enemyHealth: enemyHealth, enemyImage: currEnemy.item2, playerAttacking: playerAttacking, enemyAttacking: enemyAttacking,),
-            WordPuzzleState(changeEnemyHealthBy: changeEnemyHealthBy, changePlayerHealthBy: changePlayerHealthBy)
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                GameView(playerHealth: playerHealth, enemyHealth: enemyHealth, enemyImage: currEnemy.item2, playerAttacking: playerAttacking, enemyAttacking: enemyAttacking,),
+                Positioned(
+                  top: 75,
+                  child:
+                    Text(
+                      '$score',
+                      style: TextStyle(
+                        fontSize: 25,
+                        color: Colors.white
+                      ),
+                    ),
+                )
+              ]
+            ),
+            WordPuzzleState(playerAttack: playerAttack, enemyAttack: enemyAttack)
           ],
         )
     );
   }
 }
-
-class CurrentAttackDisplay extends StatefulWidget {
-  final int currentDamage;
-  const CurrentAttackDisplay({Key? key, required this.currentDamage}) : super(key: key);
-
-  @override
-  State<CurrentAttackDisplay> createState() => _CurrentAttackDisplayState();
-}
-
-class _CurrentAttackDisplayState extends State<CurrentAttackDisplay> {
-  @override
-  Widget build(BuildContext context) {
-    return Visibility(
-        maintainSize: true,
-        maintainState: true,
-        maintainAnimation: true,
-        visible: widget.currentDamage == 0 ? false : true,
-        child: Text(
-        style: const TextStyle(
-          fontSize: 20,
-          color: Colors.red
-        ),
-        '${widget.currentDamage} DMG'
-        )
-      );
-  }
-}
-
-class WordPuzzleState extends StatefulWidget {
-  final changeEnemyHealthBy;
-  final changePlayerHealthBy;
-  const WordPuzzleState({Key? key, required this.changeEnemyHealthBy, required this.changePlayerHealthBy}) : super(key: key);
+class GameOverScreen extends StatefulWidget {
+  final int score;
+  const GameOverScreen({Key? key,
+    required this.score}) : super(key: key);
 
   @override
-  State<WordPuzzleState> createState() => _WordPuzzleState();
+  State<GameOverScreen> createState() => _GameOverScreenState();
 }
 
-class _WordPuzzleState extends State<WordPuzzleState> {
-  // var dMSAJson = DictionaryMSA();
-  
-  static const cols = 4;
-  static const rows = 4;
-  var currentWord = "";
-  var currentDamage = 0;
-  var validWord = false;
-
-  void updateCurrentWord(String char) {
-    setState(() {
-      currentWord = '$currentWord$char';
-    });
-    checkIfStringIsWord(currentWord);
-  }
-
-  bool checkIfStringIsWord(String candidate) {
-    if (candidate.length < 3) {
-      return validWord;
-    }
-    setState(() {
-      validWord = dMSAJson.hasEntry(candidate);
-      if (validWord) {
-        calculateDamage(candidate);
-      }
-    });
-    return validWord;
-  }
-
-  int calculateDamage(String candidate) {
-    setState(() {
-      currentDamage = candidate.length~/1;
-      print(currentDamage);
-    });
-    return currentDamage;
-  }
-
-  void submitAttack() {
-    widget.changeEnemyHealthBy(-currentDamage);
-  }
-
-  static Random random = Random();
-
-  var tiles = List.generate(rows,
-          (i) => List.generate(cols, (j) => Tuple2(random.nextInt(25), -1), // Tuple<Character, Position in Word>
-          growable: false),growable: false);
-
-  static Tuple2<int, int> convert1dTo2dIndex(int index){
-    // eg. 15 -> 3, 3
-    var one = index / 4;
-    var two = index % 4;
-    return Tuple2(two.toInt(), one.toInt());
-  }
-
-  resetTiles() {
-    setState(() {
-      currentWord = "";
-      validWord = false;
-      currentDamage = 0;
-      for (var x = 0; x < tiles.length; x++) {
-        for (var y = 0; y < tiles[0].length; y++) {
-          tiles[x][y] = Tuple2(tiles[x][y].item1, -1);
-        }
-      }
-    });
-  }
-
-  loadNewTiles() {
-    setState(() {
-      currentWord = "";
-      validWord = false;
-      currentDamage = 0;
-      for (var x = 0; x < tiles.length; x++) {
-        for (var y = 0; y < tiles[0].length; y++) {
-          if (tiles[x][y].item2 != -1) {
-            tiles[x][y] = Tuple2(random.nextInt(25), -1);
-          }
-        }
-      }
-    });
-  }
-
-  static Color getTileColor(int value) {
-    if (value == 1) {
-      return Colors.greenAccent;
-    }
-    if (value == 2) {
-      return Colors.yellowAccent;
-    }
-    if (value == 3) {
-      return Colors.pinkAccent;
-    }
-    return Colors.transparent; //default
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-        children: [
-          CurrentAttackDisplay(currentDamage: currentDamage),
-          GridView.builder(
-            shrinkWrap: true,
-            padding: const EdgeInsets.all(30.0),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisSpacing: 10,
-                crossAxisCount: 4,
-                mainAxisSpacing: 10),
-            itemCount: 16,
-            itemBuilder: (BuildContext ctx, index) {
-              var matrixIndex = convert1dTo2dIndex(index);
-              int tileValue = tiles[matrixIndex.item1][matrixIndex.item2].item1;
-              int tilePressed = tiles[matrixIndex.item1][matrixIndex.item2].item2;
-
-              return ElevatedButton(
-                style: const ButtonStyle(
-                    padding: MaterialStatePropertyAll(EdgeInsets.all(0.0)),
-                    animationDuration: Duration.zero,
-                    alignment: Alignment.center,
-                    // backgroundColor:
-                    //     MaterialStatePropertyAll<Color>(getTileColor(letterPoints[tileValue]))
-                    ),
-                onPressed: tiles[matrixIndex.item1][matrixIndex.item2].item2 == -1 ? () {
-                  setState(() {
-                    updateCurrentWord(letters[tileValue]);
-                    print('hi1');
-                    tiles[matrixIndex.item1][matrixIndex.item2] = Tuple2(tileValue, currentWord.length - 1);
-                    print('hi2');
-                  });
-                } : null,
-                child: Container(
-                  padding: const EdgeInsets.all(0.0),
-                  constraints: BoxConstraints.expand(),
-                  decoration: const BoxDecoration(
-                    image: DecorationImage(
-                      image: AssetImage('assets/images/tile.png'),
-                      fit: BoxFit.cover
-                    )
-                  ),
-                    child: Align(
-                      alignment: Alignment.center,
-                      child: Text(letters[tileValue].toUpperCase(),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontSize: 20,
-                          color: Colors.black,
-                        ))
-                    )
-                ));
-            }),
-          LetterChoices(currentWord: currentWord, resetTiles: resetTiles, validWord: validWord, submitWord: submitAttack, loadNewTiles: loadNewTiles)]
-    );
-  }
-}
-
-class LetterChoices extends StatefulWidget {
-  final String currentWord;
-  final bool validWord;
-  final Function resetTiles;
-  final Function loadNewTiles;
-  final Function submitWord;
-  const LetterChoices({Key? key,
-    required this.currentWord,
-    required this.resetTiles,
-    required this.validWord,
-    required this.submitWord,
-    required this.loadNewTiles}) : super(key: key);
-
-  @override
-  State<LetterChoices> createState() => _LetterChoicesState();
-}
-
-class _LetterChoicesState extends State<LetterChoices> {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-        alignment: Alignment.center,
-        padding: const EdgeInsets.all(50.0),
-        child: Stack(
-          children: [
-            Container(
-              decoration: const BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(width: 2, color: Colors.grey)
-                )
-              ),
-              padding: const EdgeInsets.all(10.0),
-              child: Align(
-                alignment: Alignment.center,
-                child: RichText(
-                  text: TextSpan (
-                    style: const TextStyle(
-                      color: Colors.black,
-                      fontSize: 20.0
-                    ),
-                    text: widget.currentWord
-                  )
-                )
-              )
-            ),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: ElevatedButton(
-                style: const ButtonStyle(
-                  backgroundColor: MaterialStatePropertyAll(Colors.transparent)
-                ),
-                onPressed: () {
-                  widget.resetTiles();
-                },
-                child: const Icon(
-                  Icons.refresh
-                )
-              )
-            ),
-            Align(
-                alignment: Alignment.centerRight,
-                child: ElevatedButton( // Submit Button
-                    style: ButtonStyle(
-                        backgroundColor: widget.validWord ? const MaterialStatePropertyAll(Colors.green) : const MaterialStatePropertyAll(Colors.transparent)
-                    ),
-                    onPressed: () {
-                      widget.submitWord();
-                      widget.loadNewTiles();
-                    },
-                    child: const Icon(
-                        Icons.check
-                    )
-                )
-            )
-          ]
-        )
-    );
-  }
-}
-
-class GameOverScreen extends StatelessWidget {
-  const GameOverScreen({Key? key}) : super(key: key);
-
+class _GameOverScreenState extends State<GameOverScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black26,
       body: Center(
-        child: Container(
-          color: Colors.black,
-          child: Text(
-            "Game Over!",
-            style: TextStyle(
-              color: Colors.red,
-              fontSize: 30.0
-            ),
-          ),
+        child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                "YOU DIED",
+                style: TextStyle(
+                    color: Colors.red,
+                    letterSpacing: 3.0,
+                    fontSize: 30.0
+                ),
+              ),
+              Text(
+                "Score: ",
+                style: TextStyle(
+                    color: Colors.red,
+                    fontSize: 30.0
+                ),
+              ),
+              ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(context).push(MaterialPageRoute(builder: (context) => const MyApp()));
+                  },
+                  child: Text(
+                    'Retry?',
+                    style: TextStyle(
+                        color: Colors.black
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red
+                  )),
+            ]
         ),
       ),
     );
