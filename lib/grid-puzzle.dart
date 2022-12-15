@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:dictionaryx/dictionary_sa.dart';
+import 'package:flutter/services.dart';
 import 'package:tuple/tuple.dart';
 import 'dart:math';
 
 
 const letters = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"];
-const letterPoints = [1, 2, 2, 2, 1, 2, 2, 2, 1, 3, 3, 1, 2, 1, 1, 2, 5, 1, 1, 1, 1, 2, 1, 3, 3, 3];
+const letterPoints = [1, 2, 2, 2, 1, 2, 2, 2, 1, 3, 3, 1, 2, 1, 1, 2, 3, 1, 1, 1, 1, 2, 1, 3, 3, 3];
 const List<Tuple2> enemyList = [
   Tuple2(5, 'assets/images/blue-slime.gif'),
   Tuple2(10, 'assets/images/pink-slime.gif'),
@@ -64,6 +65,14 @@ class _WordPuzzleState extends State<WordPuzzleState> {
   var currentDamage = 0;
   var validWord = false;
 
+  static Future<void> play(SystemSoundType type) async {
+    await SystemChannels.platform.invokeMethod<void>(
+      'SystemSound.play',
+      type.toString(),
+    );
+    play(SystemSoundType.click);
+  }
+
   void updateCurrentWord(String char) {
     setState(() {
       currentWord = '$currentWord$char';
@@ -85,8 +94,12 @@ class _WordPuzzleState extends State<WordPuzzleState> {
   }
 
   int calculateDamage(String candidate) {
+    var totalDmg = 0;
+    for (var c in candidate.characters) {
+      totalDmg += letterPoints[letters.indexWhere((element) => element == c)];
+    }
     setState(() {
-      currentDamage = candidate.length~/1;
+      currentDamage = totalDmg;
       print(currentDamage);
     });
     return currentDamage;
@@ -153,13 +166,13 @@ class _WordPuzzleState extends State<WordPuzzleState> {
 
   static Color getTileColor(int value) {
     if (value == 1) {
-      return Colors.greenAccent;
+      return Color(0xffffffff);
     }
     if (value == 2) {
-      return Colors.yellowAccent;
+      return Color(0xff90EE90);
     }
     if (value == 3) {
-      return Colors.pinkAccent;
+      return Color(0xff1F51FF);
     }
     return Colors.transparent; //default
   }
@@ -180,45 +193,51 @@ class _WordPuzzleState extends State<WordPuzzleState> {
               itemBuilder: (BuildContext ctx, index) {
                 var matrixIndex = convert1dTo2dIndex(index);
                 int tileValue = tiles[matrixIndex.item1][matrixIndex.item2].item1;
-                int tilePressed = tiles[matrixIndex.item1][matrixIndex.item2].item2;
 
                 return ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.grey,
-                      disabledBackgroundColor: Colors.transparent,
+                      backgroundColor: const Color(0xffc2a986),
+                      disabledBackgroundColor: const Color(0xff63594b),
                       padding: EdgeInsets.all(0.0),
                       animationDuration: Duration.zero,
                       alignment: Alignment.center,
-                      // backgroundColor:
-                      //     MaterialStatePropertyAll<Color>(getTileColor(letterPoints[tileValue]))
                     ),
                     onPressed: tiles[matrixIndex.item1][matrixIndex.item2].item2 == -1 ? () {
+                      SystemSound.play(SystemSoundType.click);
                       setState(() {
                         updateCurrentWord(letters[tileValue]);
-                        print('hi1');
                         tiles[matrixIndex.item1][matrixIndex.item2] = Tuple2(tileValue, currentWord.length - 1);
-                        print('hi2');
                       });
                     } : null,
-                    child: Container(
-                        padding: const EdgeInsets.all(0.0),
-                        constraints: BoxConstraints.expand(),
-                        // decoration: const BoxDecoration(
-                        //   image: DecorationImage(
-                        //     image: AssetImage('assets/images/tile.png'),
-                        //     fit: BoxFit.cover
-                        //   )
-                        // ),
-                        child: Align(
+                    child: Stack(
+                        fit: StackFit.expand,
+                        // alignment: Alignment.center,
+                        children: [
+                          Positioned(
+                            bottom : 5,
+                            right : 5,
+                            child: Container (
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                  color: getTileColor(letterPoints[tileValue]),
+                                  shape: BoxShape.circle
+                              ),
+                            )
+                          ),
+                          Align(
                             alignment: Alignment.center,
-                            child: Text(letters[tileValue].toUpperCase(),
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 20,
-                                  color: Colors.black,
-                                ))
-                        )
-                    ));
+                            child : Text(letters[tileValue].toUpperCase(),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                              fontSize: 20,
+                              color: Colors.black,
+                            ))
+                          )
+
+                        ]
+                    )
+                );
               }),
 
           LetterChoices(
@@ -272,7 +291,7 @@ class _LetterChoicesState extends State<LetterChoices> {
                       child: RichText(
                           text: TextSpan (
                               style: const TextStyle(
-                                  color: Colors.black,
+                                  color: Colors.white,
                                   fontSize: 20.0
                               ),
                               text: widget.currentWord
@@ -322,12 +341,12 @@ class _LetterChoicesState extends State<LetterChoices> {
                   alignment: Alignment.centerRight,
                   child: ElevatedButton( // Submit Button
                       style: ButtonStyle(
-                          backgroundColor: widget.validWord ? const MaterialStatePropertyAll(Colors.green) : const MaterialStatePropertyAll(Colors.red)
+                          backgroundColor: widget.validWord ? const MaterialStatePropertyAll(Colors.green) : const MaterialStatePropertyAll(Colors.grey)
                       ),
-                      onPressed: () {
+                      onPressed: widget.validWord ? () {
                         widget.submitWord();
                         widget.loadNewTiles();
-                      },
+                      } : null,
                       child: const Icon(
                           Icons.check
                       )

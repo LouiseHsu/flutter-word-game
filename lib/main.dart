@@ -3,12 +3,14 @@
 // found in the LICENSE file.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:tuple/tuple.dart';
-import 'dart:math';
 import 'package:dictionaryx/dictionary_sa.dart';
 import 'game.dart';
 import 'grid-puzzle.dart';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+
 
 
 const letters = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"];
@@ -40,6 +42,7 @@ class MyApp extends StatelessWidget {
     );
   }
 }
+
 
 class PuzzleContainerState extends StatefulWidget {
   const PuzzleContainerState({Key? key}) : super(key: key);
@@ -85,6 +88,9 @@ class _PuzzleContainerState extends State<PuzzleContainerState> {
         AssetSource('sounds/hit.mp3'),
         volume: 0.5
     );
+
+    SystemSound.play(SystemSoundType.click);
+
     Future.delayed(const Duration(milliseconds: 300), () {
       changeEnemyHealthBy(damage);
     });
@@ -146,6 +152,20 @@ class _PuzzleContainerState extends State<PuzzleContainerState> {
                         color: Colors.white
                       ),
                     ),
+                ),
+                Positioned(
+                  top: 45,
+                  right: 25,
+                  child:
+                  IconButton(
+                    onPressed: () {
+                      Navigator.of(context).push(MaterialPageRoute(builder: (context) => const InstructionScreen()));
+                    },
+                    icon: const Icon (
+                      Icons.question_mark,
+                      color: Colors.white,
+                    ),
+                  ),
                 )
               ]
             ),
@@ -155,6 +175,7 @@ class _PuzzleContainerState extends State<PuzzleContainerState> {
     );
   }
 }
+
 class GameOverScreen extends StatefulWidget {
   final int score;
   const GameOverScreen({Key? key,
@@ -183,7 +204,7 @@ class _GameOverScreenState extends State<GameOverScreen> {
                 ),
               ),
               Text(
-                "Score: ",
+                'Score: ${widget.score}',
                 style: TextStyle(
                     color: Colors.red,
                     fontSize: 30.0
@@ -205,6 +226,46 @@ class _GameOverScreenState extends State<GameOverScreen> {
             ]
         ),
       ),
+    );
+  }
+}
+
+const String instructions = """
+Help Mr. Fox battle his way through legions of slimes by spelling words! 
+
+1. To do damage, create words using letters on the board - words must be at least **3** letters in length and be a valid word in the Oxford dictionary.
+
+2. Damage is calculated based off of length as well as rarity of letters: White = 0.5 DMG, Green = 1 DMG, Blue = 1.5 DMG.
+
+3. If you get stuck, you can use your shuffle ability to rearrange the board, but be warned - you will sacrifice a turn and take some damage!
+
+4. After you defeat an enemy, you regenerate health and gain some extra score. The words are unlimited, and the slimes, endless - how many can you take out before you're overwhelmed?
+""";
+
+class InstructionScreen extends StatelessWidget {
+  const InstructionScreen({Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white24,
+      appBar: AppBar(
+        title: const Text('How To Play'),
+      ),
+      body : Markdown(
+          data: instructions,
+          shrinkWrap: true,
+          styleSheet: MarkdownStyleSheet.fromTheme(ThemeData(
+              textTheme: const TextTheme(
+                  bodyText2: TextStyle(
+                      fontSize: 16.0, color: Colors.white70),
+                  headline1: TextStyle(
+                      color: Colors.white70)
+            )
+          )
+        )
+      ),
+
     );
   }
 }
